@@ -14,12 +14,31 @@ def load_class(file_path, class_name):
     return getattr(module, class_name)
 
 
-def check_docstring(cls, method_names):
-    for name in method_names:
-        method = getattr(cls, name, None)
-        if not method or not inspect.getdoc(method):
-            return 0
-    return 1
+def check_docstring(storage_cls, bom_cls=None):
+    total = 0
+    required = 0
+
+    # Methods to check for docstrings in Storage
+    storage_methods = [
+        "__init__", "create", "update", "search", "take", "add"
+    ]
+    for name in storage_methods:
+        method = getattr(storage_cls, name, None)
+        required += 1
+        if method and inspect.getdoc(method):
+            total += 1
+
+    # Methods to check for docstrings in BOM
+    if bom_cls:
+        bom_methods = ["__init__", "availability"]
+        for name in bom_methods:
+            method = getattr(bom_cls, name, None)
+            required += 1
+            if method and inspect.getdoc(method):
+                total += 1
+
+    # Award 1 point only if all required methods have docstrings
+    return 1 if total == required else 0
 
 
 def check_pep8(file_path):
