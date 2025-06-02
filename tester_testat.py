@@ -35,7 +35,9 @@ def check_docstring(storage_cls, bom_cls=None):
 
 def check_pep8(file_path):
     try:
-        result = subprocess.run(["flake8", file_path], capture_output=True, text=True)
+        result = subprocess.run(
+            ["flake8", file_path], capture_output=True, text=True
+        )
         return 2 if result.returncode == 0 else 0
     except FileNotFoundError:
         print("flake8 not installed. Skipping PEP8 test.")
@@ -43,15 +45,24 @@ def check_pep8(file_path):
 
 
 def create_sample_bom_csv(csv_path):
-    content = """Reference;Value;Description;Package;Part Number;Supplier;Supplier Part Number;Price
-C1;1nF;Ceramic Capacitor;0805;BOMTEST-001;Digikey;1292-1591-1-ND;0.1
-C2;10nF;Ceramic Capacitor;0805;BOMTEST-002;Digikey;1276-1245-1-ND;0.1
-C3;47nF;Ceramic Capacitor;0805;BOMTEST-003;Digikey;1276-1247-1-ND;0.1
-C4;47nF;Ceramic Capacitor;0805;BOMTEST-003;Digikey;1276-1247-1-ND;0.1
-C5;47nF;Ceramic Capacitor;0805;BOMTEST-003;Digikey;1276-1247-1-ND;0.1
-C6;47nF;Ceramic Capacitor;0805;BOMTEST-003;Digikey;1276-1247-1-ND;0.1
-U4;;Linear Voltage Regulator;SOT-23-5;BOMTEST-004;Digikey;296-27057-1-ND;0.81
-"""
+    content = (
+        "Reference;Value;Description;Package;Part Number;Supplier;"
+        "Supplier Part Number;Price\n"
+        "C1;1nF;Ceramic Capacitor;0805;BOMTEST-001;"
+        "Digikey;1292-1591-1-ND;0.1\n"
+        "C2;10nF;Ceramic Capacitor;0805;BOMTEST-002;"
+        "Digikey;1276-1245-1-ND;0.1\n"
+        "C3;47nF;Ceramic Capacitor;0805;BOMTEST-003;"
+        "Digikey;1276-1247-1-ND;0.1\n"
+        "C4;47nF;Ceramic Capacitor;0805;BOMTEST-003;"
+        "Digikey;1276-1247-1-ND;0.1\n"
+        "C5;47nF;Ceramic Capacitor;0805;BOMTEST-003;"
+        "Digikey;1276-1247-1-ND;0.1\n"
+        "C6;47nF;Ceramic Capacitor;0805;BOMTEST-003;"
+        "Digikey;1276-1247-1-ND;0.1\n"
+        "U4;;Linear Voltage Regulator;SOT-23-5;"
+        "BOMTEST-004;Digikey;296-27057-1-ND;0.81\n"
+    )
     with open(csv_path, "w", encoding="utf-8") as f:
         f.write(content)
 
@@ -59,8 +70,12 @@ U4;;Linear Voltage Regulator;SOT-23-5;BOMTEST-004;Digikey;296-27057-1-ND;0.81
 def test_init(storage_cls, temp_dir):
     file1 = pathlib.Path(temp_dir) / "INITTEST-001.txt"
     file2 = pathlib.Path(temp_dir) / "INITTEST-002.txt"
-    file1.write_text("count = 100\ndescription=Chip Resistor\n", encoding="utf-8")
-    file2.write_text("count=20\nvalue = TPS73033\npackage=SOT-23-5\n", encoding="utf-8")
+    file1.write_text(
+        "count = 100\ndescription=Chip Resistor\n", encoding="utf-8"
+    )
+    file2.write_text(
+        "count=20\nvalue = TPS73033\npackage=SOT-23-5\n", encoding="utf-8"
+    )
     s = storage_cls(pathlib.Path(temp_dir))
     data = s._data
     if (
@@ -74,17 +89,19 @@ def test_init(storage_cls, temp_dir):
 
 def test_create(storage_cls, s):
     try:
-        result = s.create("CREATETEST-001", {"count": 25, "value": "green", "price": 0.18})
-        if result != True:
+        result = s.create(
+            "CREATETEST-001", {"count": 25, "value": "green", "price": 0.18}
+        )
+        if not result:
             return 0
         part = s._data.get("CREATETEST-001")
         if not part or part["count"] != "25" or part["value"] != "green":
             return 0
         result = s.create("CREATETEST-001", {"count": 100}, overwrite=False)
-        if result != False:
+        if result is not False:
             return 0
         result = s.create("CREATETEST-001", {"count": 100}, overwrite=True)
-        if result != True or s._data["CREATETEST-001"]["count"] != "100":
+        if not result or s._data["CREATETEST-001"]["count"] != "100":
             return 0
         return 3
     except Exception:
@@ -109,7 +126,10 @@ def test_update(storage_cls, s):
 
 def test_search(storage_cls, s):
     try:
-        s.create("SEARCHTEST-001", {"count": 20, "price": 0.1, "package": "SOT-23-5"})
+        s.create(
+            "SEARCHTEST-001",
+            {"count": 20, "price": 0.1, "package": "SOT-23-5"},
+        )
         exact = s.search(part_number="SEARCHTEST-001")
         if not exact or exact["package"] != "SOT-23-5":
             return 0
@@ -122,7 +142,9 @@ def test_search(storage_cls, s):
         none_match = s.search(attributes={"value": "XXX"})
         if none_match is not None:
             return 0
-        combined = s.search(part_number="SEARCHTEST-001", attributes={"package": "SOT-23-5"})
+        combined = s.search(
+            part_number="SEARCHTEST-001", attributes={"package": "SOT-23-5"}
+        )
         if combined != exact:
             return 0
         return 3
@@ -225,27 +247,37 @@ def run_all_tests(file_path):
         if storage_available:
             s, pts = test_init(Storage, temp_dir)
             results.append(("T411–T414 - __init__", pts, 3))
-            results.append(("T421–T424 - create()", test_create(Storage, s), 3))
-            results.append(("T431–T434 - update()", test_update(Storage, s), 3))
-            results.append(("T441–T444 - search()", test_search(Storage, s), 3))
+            results.append(
+                ("T421–T424 - create()", test_create(Storage, s), 3)
+            )
+            results.append(
+                ("T431–T434 - update()", test_update(Storage, s), 3)
+            )
+            results.append(
+                ("T441–T444 - search()", test_search(Storage, s), 3)
+            )
             results.append(("T451–T454 - take()", test_take(Storage, s), 2))
             results.append(("T461–T463 - add()", test_add(Storage, s), 2))
         else:
-            results.extend([
-                ("T411–T414 - __init__", 0, 3),
-                ("T421–T424 - create()", 0, 3),
-                ("T431–T434 - update()", 0, 3),
-                ("T441–T444 - search()", 0, 3),
-                ("T451–T454 - take()", 0, 2),
-                ("T461–T463 - add()", 0, 2),
-            ])
+            results.extend(
+                [
+                    ("T411–T414 - __init__", 0, 3),
+                    ("T421–T424 - create()", 0, 3),
+                    ("T431–T434 - update()", 0, 3),
+                    ("T441–T444 - search()", 0, 3),
+                    ("T451–T454 - take()", 0, 2),
+                    ("T461–T463 - add()", 0, 2),
+                ]
+            )
 
         if bom_available and storage_available:
             csv_path = pathlib.Path(temp_dir) / "stueckliste.csv"
             create_sample_bom_csv(csv_path)
             b, pts_bom_init = test_bom_init(BOM, csv_path)
             results.append(("T511–T515 - BOM.__init__", pts_bom_init, 2))
-            pts_bom_avail = test_bom_availability(BOM, b, Storage, temp_dir) if b else 0
+            pts_bom_avail = (
+                test_bom_availability(BOM, b, Storage, temp_dir) if b else 0
+            )
             results.append(("T521–T524 - BOM.availability", pts_bom_avail, 3))
         else:
             results.append(("T511–T515 - BOM.__init__", 0, 2))
@@ -257,7 +289,9 @@ def run_all_tests(file_path):
 
 
 def main():
-    filename = input("Enter your Python filename (e.g., testat_Tobia_Rossi.py): ")
+    filename = input(
+        "Enter your Python filename (e.g., testat_Tobia_Rossi.py): "
+    )
     if not os.path.isfile(filename):
         print("❌ File not found.")
         return
