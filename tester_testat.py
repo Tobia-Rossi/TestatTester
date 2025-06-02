@@ -14,6 +14,12 @@ def load_storage_class(file_path):
     return getattr(module, "Storage")
 
 
+def load_bom_class(file_path):
+    spec = importlib.util.spec_from_file_location("testat_module", file_path)
+    module = importlib.util.module_from_spec(spec)
+    return getattr(module, "BOM")
+
+
 def check_docstring(storage_cls):
     methods = ["__init__", "create", "update", "search", "take", "add"]
     for name in methods:
@@ -137,9 +143,35 @@ def test_add(storage_cls, s):
         return 0
 
 
+def test_bom_init(bom_cls):
+    try:
+        b = bom_cls("/mnt/data/stueckliste.csv")
+        parts = b._parts
+        if "CL21B105KAFNNNE" in parts and sorted(parts["CL21B105KAFNNNE"]["reference"]) == ["C3", "C4", "C5", "C6"]:
+            return b, 2
+    except Exception:
+        return None, 0
+    return None, 0
+
+
+def test_bom_availability(bom_cls, b, storage_cls):
+    try:
+        s = storage_cls(pathlib.Path("/mnt/data/storage"))  # Adjust if needed
+        result = b.availability(storage=s, units=1)
+        if "TPS73033DBVT" not in result or "missing" not in result["TPS73033DBVT"]:
+            return 0
+        _, txt = b.availability(storage=s, units=10, output_text=True)
+        if not isinstance(txt, str) or "Part Number" not in txt:
+            return 0
+        return 3
+    except Exception:
+        return 0
+
+
 def run_all_tests(file_path):
     results = []
     Storage = load_storage_class(file_path)
+    BOM = load_bom_class(file_path)
 
     results.append(("T201 - Docstrings", check_docstring(Storage), 1))
     results.append(("T202 - PEP8", check_pep8(file_path), 2))
@@ -153,6 +185,12 @@ def run_all_tests(file_path):
         results.append(("T441–T444 - search()", test_search(Storage, s), 3))
         results.append(("T451–T454 - take()", test_take(Storage, s), 2))
         results.append(("T461–T463 - add()", test_add(Storage, s), 2))
+
+        b, pts_bom_init = test_bom_init(BOM)
+        results.append(("T511–T515 - BOM.__init__", pts_bom_init, 2))
+        pts_bom_avail = test_bom_availability(BOM, b, Storage) if b else 0
+        results.append(("T521–T524 - BOM.availability", pts_bom_avail, 3))
+
     finally:
         shutil.rmtree(temp_dir)
 
@@ -160,7 +198,7 @@ def run_all_tests(file_path):
 
 
 def main():
-    filename = input("Enter your Python filename (e.g., testat_name.py): ")
+    filename = input("Enter your Python filename (e.g., testat_Tobia_Rossi.py): ")
     if not os.path.isfile(filename):
         print("❌ File not found.")
         return
