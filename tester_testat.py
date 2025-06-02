@@ -18,7 +18,6 @@ def check_docstring(storage_cls, bom_cls=None):
     total = 0
     required = 0
 
-    # Methods to check for docstrings in Storage
     storage_methods = [
         "__init__", "create", "update", "search", "take", "add"
     ]
@@ -28,7 +27,6 @@ def check_docstring(storage_cls, bom_cls=None):
         if method and inspect.getdoc(method):
             total += 1
 
-    # Methods to check for docstrings in BOM
     if bom_cls:
         bom_methods = ["__init__", "availability"]
         for name in bom_methods:
@@ -37,7 +35,6 @@ def check_docstring(storage_cls, bom_cls=None):
             if method and inspect.getdoc(method):
                 total += 1
 
-    # Award 1 point only if all required methods have docstrings
     return 1 if total == required else 0
 
 
@@ -50,7 +47,20 @@ def check_pep8(file_path):
         return 0
 
 
-# Storage tests
+def create_sample_bom_csv(csv_path):
+    content = """Reference;Value;Description;Package;Part Number;Supplier;Supplier Part Number;Price
+C1;1nF;Ceramic Capacitor;0805;0805N102J500CT;Digikey;1292-1591-1-ND;0.1
+C2;10nF;Ceramic Capacitor;0805;CL21B103JBANNNC;Digikey;1276-1245-1-ND;0.1
+C3;47nF;Ceramic Capacitor;0805;CL21B105KAFNNNE;Digikey;1276-1247-1-ND;0.1
+C4;47nF;Ceramic Capacitor;0805;CL21B105KAFNNNE;Digikey;1276-1247-1-ND;0.1
+C5;47nF;Ceramic Capacitor;0805;CL21B105KAFNNNE;Digikey;1276-1247-1-ND;0.1
+C6;47nF;Ceramic Capacitor;0805;CL21B105KAFNNNE;Digikey;1276-1247-1-ND;0.1
+U4;;Linear Voltage Regulator;SOT-23-5;TPS73033DBVT;Digikey;296-27057-1-ND;0.81
+"""
+    with open(csv_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
 def test_init(storage_cls, temp_dir):
     file1 = pathlib.Path(temp_dir) / "RC0805FR-07100KL.txt"
     file2 = pathlib.Path(temp_dir) / "TPS73033DBVT.txt"
@@ -156,21 +166,22 @@ def test_add(storage_cls, s):
         return 0
 
 
-# BOM tests
-def test_bom_init(bom_cls):
+def test_bom_init(bom_cls, csv_path):
     try:
-        b = bom_cls("/mnt/data/stueckliste.csv")
+        b = bom_cls(csv_path)
         parts = b._parts
-        if "CL21B105KAFNNNE" in parts and sorted(parts["CL21B105KAFNNNE"]["reference"]) == ["C3", "C4", "C5", "C6"]:
+        if "CL21B105KAFNNNE" in parts and sorted(
+            parts["CL21B105KAFNNNE"]["reference"]
+        ) == ["C3", "C4", "C5", "C6"]:
             return b, 2
     except Exception:
         return None, 0
     return None, 0
 
 
-def test_bom_availability(bom_cls, b, storage_cls):
+def test_bom_availability(bom_cls, b, storage_cls, temp_dir):
     try:
-        s = storage_cls(pathlib.Path("/mnt/data/storage"))
+        s = storage_cls(pathlib.Path(temp_dir))
         result = b.availability(storage=s, units=1)
         if "TPS73033DBVT" not in result or "missing" not in result["TPS73033DBVT"]:
             return 0
@@ -182,11 +193,9 @@ def test_bom_availability(bom_cls, b, storage_cls):
         return 0
 
 
-# Main runner
 def run_all_tests(file_path):
     results = []
 
-    # Try to load Storage
     try:
         Storage = load_class(file_path, "Storage")
         storage_available = True
@@ -194,7 +203,6 @@ def run_all_tests(file_path):
         Storage = None
         storage_available = False
 
-    # Try to load BOM
     try:
         BOM = load_class(file_path, "BOM")
         bom_available = True
@@ -202,14 +210,12 @@ def run_all_tests(file_path):
         BOM = None
         bom_available = False
 
-    # PEP8
-    results.append(("T201 - Docstrings", check_docstring(Storage, ["__init__", "create", "update", "search", "take", "add"]) if storage_available else 0, 1))
+    results.append(("T201 - Docstrings", check_docstring(Storage, BOM), 1))
     results.append(("T202 - PEP8", check_pep8(file_path), 2))
 
-    # Storage Tests
-    if storage_available:
-        temp_dir = tempfile.mkdtemp()
-        try:
+    temp_dir = tempfile.mkdtemp()
+    try:
+        if storage_available:
             s, pts = test_init(Storage, temp_dir)
             results.append(("T411–T414 - __init__", pts, 3))
             results.append(("T421–T424 - create()", test_create(Storage, s), 3))
@@ -217,27 +223,28 @@ def run_all_tests(file_path):
             results.append(("T441–T444 - search()", test_search(Storage, s), 3))
             results.append(("T451–T454 - take()", test_take(Storage, s), 2))
             results.append(("T461–T463 - add()", test_add(Storage, s), 2))
-        finally:
-            shutil.rmtree(temp_dir)
-    else:
-        results.extend([
-            ("T411–T414 - __init__", 0, 3),
-            ("T421–T424 - create()", 0, 3),
-            ("T431–T434 - update()", 0, 3),
-            ("T441–T444 - search()", 0, 3),
-            ("T451–T454 - take()", 0, 2),
-            ("T461–T463 - add()", 0, 2),
-        ])
+        else:
+            results.extend([
+                ("T411–T414 - __init__", 0, 3),
+                ("T421–T424 - create()", 0, 3),
+                ("T431–T434 - update()", 0, 3),
+                ("T441–T444 - search()", 0, 3),
+                ("T451–T454 - take()", 0, 2),
+                ("T461–T463 - add()", 0, 2),
+            ])
 
-    # BOM Tests
-    if bom_available and storage_available:
-        b, pts_bom_init = test_bom_init(BOM)
-        results.append(("T511–T515 - BOM.__init__", pts_bom_init, 2))
-        pts_bom_avail = test_bom_availability(BOM, b, Storage) if b else 0
-        results.append(("T521–T524 - BOM.availability", pts_bom_avail, 3))
-    else:
-        results.append(("T511–T515 - BOM.__init__", 0, 2))
-        results.append(("T521–T524 - BOM.availability", 0, 3))
+        if bom_available and storage_available:
+            csv_path = pathlib.Path(temp_dir) / "stueckliste.csv"
+            create_sample_bom_csv(csv_path)
+            b, pts_bom_init = test_bom_init(BOM, csv_path)
+            results.append(("T511–T515 - BOM.__init__", pts_bom_init, 2))
+            pts_bom_avail = test_bom_availability(BOM, b, Storage, temp_dir) if b else 0
+            results.append(("T521–T524 - BOM.availability", pts_bom_avail, 3))
+        else:
+            results.append(("T511–T515 - BOM.__init__", 0, 2))
+            results.append(("T521–T524 - BOM.availability", 0, 3))
+    finally:
+        shutil.rmtree(temp_dir)
 
     return results
 
